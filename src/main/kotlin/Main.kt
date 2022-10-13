@@ -1,10 +1,14 @@
-import java.io.*
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
+import java.io.BufferedReader
+import java.io.File
+import java.io.FileReader
 import kotlin.experimental.or
 
 const val MAX_DIGIT_IP = 256
 const val BIT_IN_BYTE = 8
 
-fun main(args: Array<String>) {
+suspend fun main(args: Array<String>) {
     val start = System.currentTimeMillis()
     val filePath = args.firstOrNull() ?: run {
         println("Укажите путь к файлу")
@@ -24,33 +28,65 @@ fun main(args: Array<String>) {
             }
         }
     }
+    coroutineScope {
+        val channel = Channel<List<String>>(10_000)
 
-    saveUniqueIpsFromFile(BufferedReader(FileReader(file)), ips)
+        launch(Dispatchers.IO) {
+            val reader = BufferedReader(FileReader(file))
+            var line = reader.readLine()
+            var lines: MutableList<String> = mutableListOf()
+            while (line != null) {
+                lines.add(line)
 
-    println("Уникальных ip: ${getNumberOfUniqueIps(ips)}")
-    println("tiem -> ${System.currentTimeMillis() - start}")
+                if (lines.size == 50) {
+                    channel.send(lines)
+                    lines = mutableListOf()
+                }
+
+                line = reader.readLine()
+            }
+            if (lines.isNotEmpty()) {
+                channel.send(lines)
+            }
+            channel.close()
+        }
+
+        withContext(newSingleThreadContext("SaveUniqueIpsFromFile")) {
+            saveUniqueIpsFromFile(channel, ips)
+        }
+
+        println("Уникальных ip: ${getNumberOfUniqueIps(ips)}")
+        println("Общее время: ${System.currentTimeMillis() - start}")
+    }
 }
 
-private fun saveUniqueIpsFromFile(
-    reader: BufferedReader,
+private suspend fun saveUniqueIpsFromFile(
+    channel: Channel<List<String>>,
     ips: Array<Array<Array<ByteArray>>>
 ) {
-    var line = reader.readLine()
-    while (line != null) {
-        val digitInIp = line.split(".").map { it.toInt() }
-        val lastIndex = digitInIp[3] / BIT_IN_BYTE
-        val binaryCode = getBinaryCode(digitInIp[3] % BIT_IN_BYTE)
+    while (true) {
 
-        val byte = ips[digitInIp[0]][digitInIp[1]][digitInIp[2]][lastIndex]
-        ips[digitInIp[0]][digitInIp[1]][digitInIp[2]][lastIndex] = byte or binaryCode
+        val channelResult = channel.receiveCatching()
+        if (channelResult.isClosed) {
+            return
+        }
 
-        line = reader.readLine()
+        channelResult.getOrThrow()
+            .forEach {
+                val digitInIp = it
+                    .split(".")
+                    .map { it.toInt() }
+                val lastIndex = digitInIp[3] / BIT_IN_BYTE
+                val binaryCode = getBinaryCode(digitInIp[3] % BIT_IN_BYTE)
+
+                val byte = ips[digitInIp[0]][digitInIp[1]][digitInIp[2]][lastIndex]
+                ips[digitInIp[0]][digitInIp[1]][digitInIp[2]][lastIndex] = byte or binaryCode
+            }
     }
 }
 
 private fun getNumberOfUniqueIps(ips: Array<Array<Array<ByteArray>>>): Int {
     var counter = 0
-    val start = System.currentTimeMillis()
     ips.forEach {
         it.forEach {
             it.forEach {
@@ -61,7 +97,6 @@ private fun getNumberOfUniqueIps(ips: Array<Array<Array<ByteArray>>>): Int {
         }
     }
 
-    println("время ${System.currentTimeMillis() - start}")
     return counter
 }
 
