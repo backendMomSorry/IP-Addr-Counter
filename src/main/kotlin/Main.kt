@@ -5,6 +5,7 @@ const val MAX_DIGIT_IP = 256
 const val BIT_IN_BYTE = 8
 
 fun main(args: Array<String>) {
+    val start = System.currentTimeMillis()
     val filePath = args.firstOrNull() ?: run {
         println("Укажите путь к файлу")
         return
@@ -27,6 +28,7 @@ fun main(args: Array<String>) {
     saveUniqueIpsFromFile(BufferedReader(FileReader(file)), ips)
 
     println("Уникальных ip: ${getNumberOfUniqueIps(ips)}")
+    println("tiem -> ${System.currentTimeMillis() - start}")
 }
 
 private fun saveUniqueIpsFromFile(
