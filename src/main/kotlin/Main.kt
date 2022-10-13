@@ -29,7 +29,7 @@ suspend fun main(args: Array<String>) {
         }
     }
     coroutineScope {
-        val channel = Channel<List<String>>(10_000)
+        val channel = Channel<List<String>>(50)
 
         launch(Dispatchers.IO) {
             val reader = BufferedReader(FileReader(file))
@@ -38,7 +38,7 @@ suspend fun main(args: Array<String>) {
             while (line != null) {
                 lines.add(line)
 
-                if (lines.size == 50) {
+                if (lines.size == 5000) {
                     channel.send(lines)
                     lines = mutableListOf()
                 }
