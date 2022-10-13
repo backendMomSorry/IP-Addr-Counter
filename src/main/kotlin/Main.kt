@@ -16,9 +16,6 @@ fun main(args: Array<String>) {
         return
     }
 
-    val reader = BufferedReader(FileReader(file))
-    var line = reader.readLine()
-
     val ips = Array(MAX_DIGIT_IP) {
         Array(MAX_DIGIT_IP) {
             Array(MAX_DIGIT_IP) {
@@ -27,6 +24,16 @@ fun main(args: Array<String>) {
         }
     }
 
+    saveUniqueIpsFromFile(BufferedReader(FileReader(file)), ips)
+
+    println("Уникальных ip: ${getNumberOfUniqueIps(ips)}")
+}
+
+private fun saveUniqueIpsFromFile(
+    reader: BufferedReader,
+    ips: Array<Array<Array<ByteArray>>>
+) {
+    var line = reader.readLine()
     while (line != null) {
         val digitInIp = line.split(".").map { it.toInt() }
         val lastIndex = digitInIp[3] / BIT_IN_BYTE
@@ -37,12 +44,11 @@ fun main(args: Array<String>) {
 
         line = reader.readLine()
     }
-
-    println("Уникальных ip: ${getNumberOfUniqueIps(ips)}")
 }
 
 private fun getNumberOfUniqueIps(ips: Array<Array<Array<ByteArray>>>): Int {
     var counter = 0
+    val start = System.currentTimeMillis()
     ips.forEach {
         it.forEach {
             it.forEach {
@@ -52,6 +58,8 @@ private fun getNumberOfUniqueIps(ips: Array<Array<Array<ByteArray>>>): Int {
             }
         }
     }
+
+    println("время ${System.currentTimeMillis() - start}")
     return counter
 }
 
