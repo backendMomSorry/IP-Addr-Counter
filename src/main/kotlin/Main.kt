@@ -3,6 +3,7 @@ import kotlinx.coroutines.channels.Channel
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileReader
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.experimental.or
 
 const val MAX_DIGIT_IP = 256
@@ -38,7 +39,7 @@ suspend fun main(args: Array<String>) {
             while (line != null) {
                 lines.add(line)
 
-                if (lines.size == 5000) {
+                if (lines.size == 1000) {
                     channel.send(lines)
                     lines = mutableListOf()
                 }
@@ -51,7 +52,7 @@ suspend fun main(args: Array<String>) {
             channel.close()
         }
 
-        withContext(newSingleThreadContext("SaveUniqueIpsFromFile")) {
+        withContext((Dispatchers.Default)) {
             saveUniqueIpsFromFile(channel, ips)
         }
 
@@ -79,8 +80,10 @@ private suspend fun saveUniqueIpsFromFile(
                 val lastIndex = digitInIp[3] / BIT_IN_BYTE
                 val binaryCode = getBinaryCode(digitInIp[3] % BIT_IN_BYTE)
 
-                val byte = ips[digitInIp[0]][digitInIp[1]][digitInIp[2]][lastIndex]
-                ips[digitInIp[0]][digitInIp[1]][digitInIp[2]][lastIndex] = byte or binaryCode
+//                synchronized(ips[digitInIp[0]][digitInIp[1]][digitInIp[2]][lastIndex]) { ///// ????????
+                    val byte = ips[digitInIp[0]][digitInIp[1]][digitInIp[2]][lastIndex]
+                    ips[digitInIp[0]][digitInIp[1]][digitInIp[2]][lastIndex] = byte or binaryCode
+//                }
             }
     }
 }
