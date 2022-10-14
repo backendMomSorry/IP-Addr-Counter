@@ -3,11 +3,9 @@ import kotlinx.coroutines.channels.Channel
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileReader
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.experimental.or
 
-const val MAX_DIGIT_IP = 256
-const val BIT_IN_BYTE = 8
+const val BIT_IN_INT = 32
 
 suspend fun main(args: Array<String>) {
     val start = System.currentTimeMillis()
@@ -22,13 +20,8 @@ suspend fun main(args: Array<String>) {
         return
     }
 
-    val ips = Array(MAX_DIGIT_IP) {
-        Array(MAX_DIGIT_IP) {
-            Array(MAX_DIGIT_IP) {
-                ByteArray(MAX_DIGIT_IP / BIT_IN_BYTE)
-            }
-        }
-    }
+    val ips = IntArray(134217728)
+
     coroutineScope {
         val channel = Channel<List<String>>(50)
 
@@ -63,7 +56,7 @@ suspend fun main(args: Array<String>) {
 
 private suspend fun saveUniqueIpsFromFile(
     channel: Channel<List<String>>,
-    ips: Array<Array<Array<ByteArray>>>
+    ips: IntArray
 ) {
     while (true) {
 
@@ -77,41 +70,30 @@ private suspend fun saveUniqueIpsFromFile(
                 val digitInIp = it
                     .split(".")
                     .map { it.toInt() }
-                val lastIndex = digitInIp[3] / BIT_IN_BYTE
-                val binaryCode = getBinaryCode(digitInIp[3] % BIT_IN_BYTE)
+                val index =
+                    (digitInIp[0] shl 24) + (digitInIp[1] shl 16) + (digitInIp[2] shl 8) + (digitInIp[3] / BIT_IN_INT)
+                val binaryCode = getBinaryCode(digitInIp[3] % BIT_IN_INT)
 
-//                synchronized(ips[digitInIp[0]][digitInIp[1]][digitInIp[2]][lastIndex]) { ///// ????????
-                    val byte = ips[digitInIp[0]][digitInIp[1]][digitInIp[2]][lastIndex]
-                    ips[digitInIp[0]][digitInIp[1]][digitInIp[2]][lastIndex] = byte or binaryCode
-//                }
+                val byte = ips[index]
+                ips[index] = byte or binaryCode
             }
     }
 }
 
-private fun getNumberOfUniqueIps(ips: Array<Array<Array<ByteArray>>>): Int {
+private fun getNumberOfUniqueIps(ips: IntArray): Int {
     var counter = 0
     ips.forEach {
-        it.forEach {
-            it.forEach {
-                it.forEach { byte ->
-                    counter += byte.countOneBits()
-                }
-            }
-        }
+        counter += it.countOneBits()
     }
 
     return counter
 }
 
 
-fun getBinaryCode(digit: Int): Byte = when (digit) {
-    0 -> 0b00000001
-    1 -> 0b00000010
-    2 -> 0b00000100
-    3 -> 0b00001000
-    4 -> 0b00010000
-    5 -> 0b00100000
-    6 -> 0b01000000
-    7 -> -0b10000000
-    else -> throw Exception("incorrect digit")
+fun getBinaryCode(digit: Int): Int {
+    if (digit > 31) {
+        throw Exception("incorrect digit")
+    }
+
+    return 0b00000001 shl digit
 }
