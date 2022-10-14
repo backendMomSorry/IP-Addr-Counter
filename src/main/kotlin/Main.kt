@@ -3,7 +3,6 @@ import kotlinx.coroutines.channels.Channel
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileReader
-import kotlin.experimental.or
 
 const val BIT_IN_INT = 32
 
@@ -70,8 +69,7 @@ private suspend fun saveUniqueIpsFromFile(
                 val digitInIp = it
                     .split(".")
                     .map { it.toInt() }
-                val index =
-                    (digitInIp[0] shl 24) + (digitInIp[1] shl 16) + (digitInIp[2] shl 8) + (digitInIp[3] / BIT_IN_INT)
+                val index = getIndex(digitInIp)
                 val binaryCode = getBinaryCode(digitInIp[3] % BIT_IN_INT)
 
                 val byte = ips[index]
@@ -79,6 +77,8 @@ private suspend fun saveUniqueIpsFromFile(
             }
     }
 }
+private fun getIndex(digitInIp: List<Int>) =
+    (digitInIp[0] shl 24) + (digitInIp[1] shl 16) + (digitInIp[2] shl 8) + (digitInIp[3] / BIT_IN_INT)
 
 private fun getNumberOfUniqueIps(ips: IntArray): Int {
     var counter = 0
