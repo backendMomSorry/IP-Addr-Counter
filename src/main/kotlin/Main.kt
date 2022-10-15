@@ -3,9 +3,9 @@ import kotlinx.coroutines.channels.Channel
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileReader
+import java.util.concurrent.atomic.AtomicIntegerArray
 
 const val BIT_IN_INT = 32
-
 suspend fun main(args: Array<String>) {
     val start = System.currentTimeMillis()
     val filePath = args.firstOrNull() ?: run {
@@ -19,7 +19,7 @@ suspend fun main(args: Array<String>) {
         return
     }
 
-    val ips = IntArray(134217728)
+    val ips = AtomicIntegerArray(134217728)
 
     coroutineScope {
         val channel = Channel<List<String>>(50)
@@ -44,6 +44,18 @@ suspend fun main(args: Array<String>) {
             channel.close()
         }
 
+        launch {
+            saveUniqueIpsFromFile(channel, ips)
+        }
+
+        launch {
+            saveUniqueIpsFromFile(channel, ips)
+        }
+
+        launch {
+            saveUniqueIpsFromFile(channel, ips)
+        }
+
         withContext((Dispatchers.Default)) {
             saveUniqueIpsFromFile(channel, ips)
         }
@@ -55,7 +67,7 @@ suspend fun main(args: Array<String>) {
 
 private suspend fun saveUniqueIpsFromFile(
     channel: Channel<List<String>>,
-    ips: IntArray
+    ips: AtomicIntegerArray
 ) {
     while (true) {
 
@@ -72,18 +84,23 @@ private suspend fun saveUniqueIpsFromFile(
                 val index = getIndex(digitInIp)
                 val binaryCode = getBinaryCode(digitInIp[3] % BIT_IN_INT)
 
-                val byte = ips[index]
-                ips[index] = byte or binaryCode
+                var result = false
+                while (!result) {
+                    val byte = ips[index]
+                    result = ips.compareAndSet(index, byte, byte or binaryCode)
+                }
             }
     }
 }
-private fun getIndex(digitInIp: List<Int>) =
-    (digitInIp[0] shl 24) + (digitInIp[1] shl 16) + (digitInIp[2] shl 8) + (digitInIp[3] / BIT_IN_INT)
 
-private fun getNumberOfUniqueIps(ips: IntArray): Int {
+private fun getIndex(digitInIp: List<Int>) =
+    (digitInIp[0] shl 19) + (digitInIp[1] shl 11) + (digitInIp[2] shl 3) + (digitInIp[3] / BIT_IN_INT)
+
+private fun getNumberOfUniqueIps(ips: AtomicIntegerArray): Int {
     var counter = 0
-    ips.forEach {
-        counter += it.countOneBits()
+
+    for (i in 0 until ips.length()) {
+        counter += ips[i].countOneBits()
     }
 
     return counter
