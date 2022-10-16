@@ -6,6 +6,8 @@ import java.io.FileReader
 import java.util.concurrent.atomic.AtomicIntegerArray
 
 const val BIT_IN_INT = 32
+const val AMOUNT_OF_ALL_IPS = 134217728
+
 suspend fun main(args: Array<String>) {
     val start = System.currentTimeMillis()
     val filePath = args.firstOrNull() ?: run {
@@ -18,8 +20,6 @@ suspend fun main(args: Array<String>) {
         println("Файл не найден")
         return
     }
-
-    val ips = AtomicIntegerArray(134217728)
 
     coroutineScope {
         val channel = Channel<List<String>>(50)
@@ -44,20 +44,14 @@ suspend fun main(args: Array<String>) {
             channel.close()
         }
 
-        launch {
-            saveUniqueIpsFromFile(channel, ips)
-        }
+        val ips = AtomicIntegerArray(AMOUNT_OF_ALL_IPS)
 
-        launch {
-            saveUniqueIpsFromFile(channel, ips)
-        }
-
-        launch {
-            saveUniqueIpsFromFile(channel, ips)
-        }
-
-        withContext((Dispatchers.Default)) {
-            saveUniqueIpsFromFile(channel, ips)
+        withContext(Dispatchers.Default) {
+            for (i in 0 until ((Runtime.getRuntime().availableProcessors() - 1).takeIf { it > 1 } ?: 1)) {
+                launch {
+                    saveUniqueIpsFromFile(channel, ips)
+                }
+            }
         }
 
         println("Уникальных ip: ${getNumberOfUniqueIps(ips)}")
@@ -77,17 +71,17 @@ private suspend fun saveUniqueIpsFromFile(
         }
 
         channelResult.getOrThrow()
-            .forEach {
-                val digitInIp = it
+            .forEach { ip ->
+                val digitInIp = ip
                     .split(".")
                     .map { it.toInt() }
                 val index = getIndex(digitInIp)
-                val binaryCode = getBinaryCode(digitInIp[3] % BIT_IN_INT)
+                val code = getSpecialCode(digitInIp[3] % BIT_IN_INT)
 
                 var result = false
                 while (!result) {
-                    val byte = ips[index]
-                    result = ips.compareAndSet(index, byte, byte or binaryCode)
+                    val int = ips[index]
+                    result = ips.compareAndSet(index, int, int or code)
                 }
             }
     }
@@ -107,7 +101,7 @@ private fun getNumberOfUniqueIps(ips: AtomicIntegerArray): Int {
 }
 
 
-fun getBinaryCode(digit: Int): Int {
+fun getSpecialCode(digit: Int): Int {
     if (digit > 31) {
         throw Exception("incorrect digit")
     }
