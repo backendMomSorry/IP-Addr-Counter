@@ -7,6 +7,8 @@ import java.util.concurrent.atomic.AtomicIntegerArray
 
 const val BIT_IN_INT = 32
 const val AMOUNT_OF_ALL_IPS = 134217728
+const val CHANNEL_CAPACITY = 50
+const val NUMBER_OF_STRINGS_IN_CHANNEL = 1000
 
 suspend fun main(args: Array<String>) {
     val start = System.currentTimeMillis()
@@ -22,27 +24,9 @@ suspend fun main(args: Array<String>) {
     }
 
     coroutineScope {
-        val channel = Channel<List<String>>(50)
+        val channel = Channel<List<String>>(CHANNEL_CAPACITY)
 
-        launch(Dispatchers.IO) {
-            val reader = BufferedReader(FileReader(file))
-            var line = reader.readLine()
-            var lines: MutableList<String> = mutableListOf()
-            while (line != null) {
-                lines.add(line)
-
-                if (lines.size == 1000) {
-                    channel.send(lines)
-                    lines = mutableListOf()
-                }
-
-                line = reader.readLine()
-            }
-            if (lines.isNotEmpty()) {
-                channel.send(lines)
-            }
-            channel.close()
-        }
+        launchReadFile(file, channel)
 
         val ips = AtomicIntegerArray(AMOUNT_OF_ALL_IPS)
 
@@ -56,6 +40,31 @@ suspend fun main(args: Array<String>) {
 
         println("Уникальных ip: ${getNumberOfUniqueIps(ips)}")
         println("Общее время: ${System.currentTimeMillis() - start}")
+    }
+}
+
+private fun CoroutineScope.launchReadFile(
+    file: File,
+    channel: Channel<List<String>>
+) {
+    launch(Dispatchers.IO) {
+        val reader = BufferedReader(FileReader(file))
+        var line = reader.readLine()
+        var lines: MutableList<String> = mutableListOf()
+        while (line != null) {
+            lines.add(line)
+
+            if (lines.size == NUMBER_OF_STRINGS_IN_CHANNEL) {
+                channel.send(lines)
+                lines = mutableListOf()
+            }
+
+            line = reader.readLine()
+        }
+        if (lines.isNotEmpty()) {
+            channel.send(lines)
+        }
+        channel.close()
     }
 }
 
@@ -102,9 +111,9 @@ private fun getNumberOfUniqueIps(ips: AtomicIntegerArray): Int {
 
 
 fun getSpecialCode(digit: Int): Int {
-    if (digit > 31) {
+    if (digit >= BIT_IN_INT) {
         throw Exception("incorrect digit")
     }
 
-    return 0b00000001 shl digit
+    return 1 shl digit
 }
